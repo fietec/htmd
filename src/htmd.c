@@ -213,6 +213,22 @@ bool is_tripple_char(char *line, char c)
     return true;
 }
 
+void escape_line(char *pr, String_Builder *sb)
+{
+    while (true){
+        char c = *pr++;
+        switch(c){
+            case '<': sb_append_cstr(sb, "&lt;"); break;
+            case '>': sb_append_cstr(sb, "&gt;"); break;
+            case '\0': {
+                sb_append_cstr(sb, "\n");
+                return;
+            } break;
+            default: sb_append_buf(sb, &c, 1);
+        }
+    }
+}
+
 char* render_markdown(char *input)
 {
     char line_buffer[4096];
@@ -280,16 +296,16 @@ char* render_markdown(char *input)
         if (is_tripple_char(line_buffer, '`')){
             last_line_blank = false;
             if (!is_code){
-                sb_append_cstr(&output_sb, "<pre><code>");
+                sb_append_cstr(&output_sb, "<pre>\n<code>");
                 is_code = true;
             }else{
-                sb_append_cstr(&output_sb, "</code></pre>\n");
+                sb_append_cstr(&output_sb, "</code>\n</pre>\n");
                 is_code = false;
             }
             continue;
         }
         if (is_code){
-            sb_appendf(&output_sb, "%s\n", line_buffer);
+            escape_line(line_buffer, &output_sb);
             continue;
         }
         if (is_list){
