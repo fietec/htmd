@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Markdown WASM Demo</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <link rel="stylesheet" href="../src/style.css">
+    <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background-color: #f8f8f8;
+    }
+    header {
+      background-color: #ffffff;
+      border-bottom: 1px solid #ddd;
+      padding: 1rem 2rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    header h1 {
+      margin: 0;
+      font-size: 1.5rem;
+      color: #333;
+    }
+    header p {
+      margin: 0.25rem 0 0;
+      color: #666;
+    }
+    #container {
+      display: flex;
+      flex: 1;
+      width: 100%;
+    }
+    #left, #right {
+      width: 50%;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+    }
+    #input {
+      flex: 1;
+      resize: none;
+      font-size: 1rem;
+      padding: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      background: #fff;
+    }
+    #output {
+      flex: 1;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      padding: 1rem;
+      background: #ffffff;
+      overflow-y: auto;
+    }
+	</style>
+</head>
+<body>
+  <header>
+	<h1>HTMD</h1>
+	<p>A simple Markdown viewer, written in C</p>
+  </header>
+  <div id="container">
+    <div id="left">
+      <textarea id="input"># Hello **world**</textarea>
+    </div>
+    <div id="right">
+      <div id="output"></div>
+    </div>
+  </div>
+
+  <script src="markdown.js"></script>
+  <script>
+    Module().then((Module) => {
+      const render = Module.cwrap('render_markdown', 'number', ['number']);
+
+      window.convert = () => {
+        const input = document.getElementById('input').value;
+        const length = Module.lengthBytesUTF8(input) + 1;
+        const ptr = Module._malloc(length);
+        Module.stringToUTF8(input, ptr, length);
+
+        const outPtr = render(ptr);
+        const output = Module.UTF8ToString(outPtr);
+
+        Module._free(ptr);
+        Module._free(outPtr);
+
+        document.getElementById('output').innerHTML = output;
+      };
+
+		document.getElementById('input').addEventListener("input", () => {
+			convert();
+			document.querySelectorAll('pre code').forEach((block) => {
+				hljs.highlightElement(block);
+			});
+		});
+		convert();
+		document.querySelectorAll('pre code').forEach((block) => {
+			hljs.highlightElement(block);
+		});
+    });
+  </script>
+</body>
+</html>

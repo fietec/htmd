@@ -7,9 +7,13 @@
 #include <stdbool.h>
 #include <ctype.h>
 
-#define NOB_IMPLEMENTATION
+#include <htmd.h>
+
+#ifndef HTMD_CLI
+    #define NOB_IMPLEMENTATION
+#endif // HTMD_CLI
 #define NOB_STRIP_PREFIX
-#include "nob.h"
+#include <nob.h>
 
 typedef enum{
     Fmt_Bold,
@@ -18,32 +22,11 @@ typedef enum{
     _Fmt_Count
 } Format;
 
-#define eprintfn(msg, ...) do{fprintf(stderr, "[ERROR] " msg "\n", ##__VA_ARGS__);}while(0)
-
-char* read_file(const char *path)
+char* strchrnul(const char *r, int c)
 {
-    FILE *file = fopen(path, "r");
-    if (file == NULL){
-        eprintfn("Could not open file '%s': %s!", path, strerror(errno));
-        return NULL;
-    }
-    struct stat attr;
-    if (fstat(fileno(file), &attr) == -1){
-        eprintfn("Could not read stats from '%s': %s!", path, strerror(errno));
-        fclose(file);
-        return NULL;
-    }
-    size_t size = attr.st_size;
-    char *content = calloc(1, size+1);
-    assert(content != NULL && "Buy more RAM");
-    if (fread(content, 1, size, file) != size){
-        eprintfn("Could not read all bytes from '%s'!", path);
-        fclose(file);
-        free(content);
-        return NULL;
-    }
-    fclose(file);
-    return content;
+    char *p = strchr(r, c);
+    if (p == NULL) return (char*)r+strlen(r);
+    return p;
 }
 
 char* get_next_line(char *line_start, char *buffer, size_t buffer_size)
@@ -230,12 +213,13 @@ bool is_tripple_char(char *line, char c)
     return true;
 }
 
-void md_to_html(char *input, String_Builder *output_sb)
+char* render_markdown(char *input)
 {
     char line_buffer[4096];
     char *line = input;
     
     String_Builder temp_sb = {0};
+    String_Builder output_sb = {0};
 
     bool last_line_blank = false;
     bool is_list = false;
@@ -252,7 +236,7 @@ void md_to_html(char *input, String_Builder *output_sb)
             is_list = false;
             is_olist = false;
             is_bq = false;
-            sb_append_cstr(output_sb, "<hr>\n");
+            sb_append_cstr(&output_sb, "<hr>\n");
             continue;
         }
         // TOOD: enable nested lists
@@ -260,11 +244,11 @@ void md_to_html(char *input, String_Builder *output_sb)
         if (list_start != NULL){
             last_line_blank = false;
             if (!is_list){
-                sb_append_cstr(output_sb, "<ul>\n");
+                sb_append_cstr(&output_sb, "<ul>\n");
                 is_list = true;
             }
             parse_text(list_start, &temp_sb);
-            sb_appendf(output_sb, "    <li>%.*s</li>\n", (int) temp_sb.count, temp_sb.items);
+            sb_appendf(&output_sb, "    <li>%.*s</li>\n", (int) temp_sb.count, temp_sb.items);
             temp_sb.count = 0;
             continue;
         }
@@ -272,11 +256,11 @@ void md_to_html(char *input, String_Builder *output_sb)
         if (olist_start != NULL){
             last_line_blank = false;
             if (!is_olist){
-                sb_append_cstr(output_sb, "<ol>\n");
+                sb_append_cstr(&output_sb, "<ol>\n");
                 is_olist = true;
             }
             parse_text(olist_start, &temp_sb);
-            sb_appendf(output_sb, "    <li>%.*s</li>\n", (int) temp_sb.count, temp_sb.items);
+            sb_appendf(&output_sb, "    <li>%.*s</li>\n", (int) temp_sb.count, temp_sb.items);
             temp_sb.count = 0;
             continue;
         }
@@ -284,45 +268,45 @@ void md_to_html(char *input, String_Builder *output_sb)
         if (bq_start != NULL){
             last_line_blank = false;
             if (!is_bq){
-                sb_append_cstr(output_sb, "<blockquote>\n");
+                sb_append_cstr(&output_sb, "<blockquote>\n");
                 is_bq = true;
             }
             if (line_is_blank(bq_start+1)) continue;
             parse_paragraph(bq_start, &temp_sb);
-            sb_appendf(output_sb, "    %.*s\n", (int) temp_sb.count, temp_sb.items);
+            sb_appendf(&output_sb, "    %.*s\n", (int) temp_sb.count, temp_sb.items);
             temp_sb.count = 0;
             continue;
         }
         if (is_tripple_char(line_buffer, '`')){
             last_line_blank = false;
             if (!is_code){
-                sb_append_cstr(output_sb, "<pre><code>");
+                sb_append_cstr(&output_sb, "<pre><code>");
                 is_code = true;
             }else{
-                sb_append_cstr(output_sb, "</code></pre>\n");
+                sb_append_cstr(&output_sb, "</code></pre>\n");
                 is_code = false;
             }
             continue;
         }
         if (is_code){
-            sb_appendf(output_sb, "%s\n", line_buffer);
+            sb_appendf(&output_sb, "%s\n", line_buffer);
             continue;
         }
         if (is_list){
-            sb_append_cstr(output_sb, "</ul>\n");
+            sb_append_cstr(&output_sb, "</ul>\n");
             is_list = false;
         }
         if (is_olist){
-            sb_append_cstr(output_sb, "</ol>\n");
+            sb_append_cstr(&output_sb, "</ol>\n");
             is_olist = false;
         }
         if (is_bq){
-            sb_append_cstr(output_sb, "</blockquote>\n");
+            sb_append_cstr(&output_sb, "</blockquote>\n");
             is_bq = false;
         }
         if (line_is_blank(line_buffer)){
             if (last_line_blank){
-                sb_append_cstr(output_sb, "<br>\n");
+                sb_append_cstr(&output_sb, "<br>\n");
             }
             last_line_blank = !last_line_blank;
             continue;
@@ -331,46 +315,17 @@ void md_to_html(char *input, String_Builder *output_sb)
         size_t header_level = get_header_level(line_buffer);
         if (header_level > 0){
             parse_text(line_buffer+header_level, &temp_sb);
-            sb_appendf(output_sb, "<h%zu>%.*s</h%zu>\n", header_level, (int) temp_sb.count, temp_sb.items, header_level);
+            sb_appendf(&output_sb, "<h%zu>%.*s</h%zu>\n", header_level, (int) temp_sb.count, temp_sb.items, header_level);
             temp_sb.count = 0;
         }
         else {
             parse_paragraph(line_buffer, &temp_sb);
-            sb_appendf(output_sb, "%.*s\n", (int) temp_sb.count, temp_sb.items);
+            sb_appendf(&output_sb, "%.*s\n", (int) temp_sb.count, temp_sb.items);
             temp_sb.count = 0;
         }
     }
     sb_free(temp_sb);
+    sb_append_null(&output_sb);
+    return output_sb.items;
 }
 
-int main(int argc, char *argv[])
-{
-    if (argc < 2){
-        eprintfn("No input file provided!");
-        return 1;
-    }
-    int result = 0;
-
-    String_Builder sb = {0};
-    
-    char *content = read_file(argv[1]);
-
-    sb_append_cstr(&sb, "<head>\n");
-    read_entire_file("head.html", &sb);
-    sb_append_cstr(&sb, "<body>\n");
-    md_to_html(content, &sb);
-    sb_append_cstr(&sb, "</body>\n</head>");
-    FILE *file = fopen("out.html", "w");
-    if (file == NULL){
-        eprintfn("Could not open output file: %s", strerror(errno));
-        return_defer(1);
-    }
-
-    fwrite(sb.items, 1, sb.count, file);
-    
-    fclose(file);
-  defer:
-    free(content);
-    sb_free(sb);
-    return result;
-}
