@@ -1,3 +1,7 @@
+/*
+  this is an outdated version of htmd. use render.c instead
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -19,6 +23,7 @@ typedef enum{
     Fmt_Bold,
     Fmt_Italic,
     Fmt_Code,
+    Fmt_Strike,
     _Fmt_Count
 } Format;
 
@@ -143,6 +148,14 @@ void parse_text(char *line, String_Builder *sb)
                 }
                 s = pr + 1;
             }break;
+            case '~': {
+                if (*(pr+1) == '~'){
+                    sb_append_buf(sb, s, pr-s);
+                    sb_append_cstr(sb, fmts[Fmt_Strike]++%2 == 0 ? "<s>":"</s>");
+                    pr+=1;
+                    s = pr+1;
+                }
+            }break;
             case '[': {
                 sb_append_buf(sb, s, pr-s);
                 pr = try_parse_link(pr, sb);
@@ -234,8 +247,8 @@ char* render_markdown(char *input)
     char line_buffer[4096];
     char *line = input;
     
-    String_Builder temp_sb = {0};
     String_Builder output_sb = {0};
+    String_Builder temp_sb = {0};
 
     bool last_line_blank = false;
     bool is_list = false;

@@ -84,7 +84,7 @@ int main(int argc, char *argv[])
     
     char *content = read_file(input_file);
     if (full_html){
-        sb_append_cstr(&sb, "<html>\n<head>\n");
+        sb_append_cstr(&sb, "<!DOCTYPE html>\n<html>\n<head>\n");
         if (do_styling){
             read_entire_file("src/head.html", &sb);
             sb_append_cstr(&sb, "<style>\n");
@@ -93,7 +93,10 @@ int main(int argc, char *argv[])
         }
         sb_append_cstr(&sb, "</head>\n<body>\n");
     }
-    sb_append_cstr(&sb, render_markdown(content));
+    char *output = render_markdown(content);
+    if (output != NULL){
+        sb_append_cstr(&sb, output);
+    }
     if (full_html) sb_append_cstr(&sb, "</body>\n</html>");
     if (output_file != NULL){
         FILE *file = fopen(output_file, "w");
@@ -103,8 +106,8 @@ int main(int argc, char *argv[])
         }
         fwrite(sb.items, 1, sb.count, file);
         fclose(file);
-    }else {
-        puts(sb.items);
+    }else if (sb.items != NULL) {
+         puts(sb.items);
     }
   defer:
     free(content);
