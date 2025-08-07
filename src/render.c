@@ -108,49 +108,102 @@ bool line_is_empty(char *line)
 }
 
 // Rendering
+char* try_render_link(char *pr, String_Builder *sb)
+{
+    char *display_start = ++pr;
+    char *display_end = strchrnul(pr, ']');
+    pr = display_end;
+    if (*pr == '\0') return NULL;
+    if (*++pr != '(') return NULL;
+    char *link_start = ++pr;
+    char *link_end = strchrnul(pr, ')');
+    if (*link_end == '\0') return NULL;
+    if (strchrnul(link_start, ' ') < link_end) return NULL;
+    sb_appendf(sb, "<a href=\"%.*s\">%.*s</a>", (int) (link_end-link_start), link_start, (int) (display_end-display_start), display_start);
+    return link_end;
+}
+
+char* try_render_image(char *pr, String_Builder *sb)
+{
+    char *display_start = pr+=2;
+    char *display_end = strchrnul(pr, ']');
+    pr = display_end;
+    if (*pr == '\0') return NULL;
+    if (*++pr != '(') return NULL;
+    char *link_start = ++pr;
+    char *link_end = strchrnul(pr, ')');
+    if (*link_end == '\0') return NULL;
+    if (strchrnul(link_start, ' ') < link_end) return NULL;
+    sb_appendf(sb, "<img src=\"%.*s\" alt=\"%.*s\">", (int) (link_end-link_start), link_start, (int) (display_end-display_start), display_start);
+    return link_end;
+}
 
 void render_text(char *pr, String_Builder *sb)
 {
     bool styles[_Style_Count] = {0};
     char *last = pr;
+    
     while (true){
-        if (starts_with(pr, "**") || starts_with(pr, "__")){
+        if (*pr == '`'){
             sb_append_buf(sb, last, pr-last);
-            sb_append_cstr(sb, styles[Style_Bold]? "</strong>" : "<strong>");
-            styles[Style_Bold] = !styles[Style_Bold];
-            last = pr+=2;
+            sb_append_cstr(sb, styles[Style_Code]? "</code>" : "<code>");
+            styles[Style_Code] = !styles[Style_Code];
+            last = ++pr;
             continue;
         }
-        // TODO: add link and image support
-        switch (*pr){
-            case '*':
-            case '_':{
+        if (*pr == '\0'){
+            sb_append_buf(sb, last, pr-last);
+            return;
+        }
+        if (!styles[Style_Code]){
+            if (starts_with(pr, "**") || starts_with(pr, "__")){
                 sb_append_buf(sb, last, pr-last);
-                sb_append_cstr(sb, styles[Style_Italic]? "</em>" : "<em>");
-                styles[Style_Italic] = !styles[Style_Italic];
+                sb_append_cstr(sb, styles[Style_Bold]? "</strong>" : "<strong>");
+                styles[Style_Bold] = !styles[Style_Bold];
+                last = pr+=2;
+                continue;
+            }
+            if (starts_with(pr, "![")){
+                sb_append_buf(sb, last, pr-last);
+                char *result = try_render_image(pr, sb);
+                if (result == NULL){
+                    sb_append_buf(sb, pr, 1);
+                }else{
+                    pr = result;
+                }
                 last = ++pr;
-            }continue;
-            case '~':{
-                sb_append_buf(sb, last, pr-last);
-                sb_append_cstr(sb, styles[Style_Strike]? "</s>" : "<s>");
-                styles[Style_Strike] = !styles[Style_Strike];
-                last = ++pr;
-            }continue;
-            case '`':{
-                sb_append_buf(sb, last, pr-last);
-                sb_append_cstr(sb, styles[Style_Code]? "</code>" : "<code>");
-                styles[Style_Code] = !styles[Style_Code];
-                last = ++pr;
-            }continue;
-            case '\\':{
-                // escaping
-                sb_append_buf(sb, last, pr-last);
-                sb_append_buf(sb, ++pr, 1);
-                last = ++pr;
-            }continue;
-            case '\0':{
-                sb_append_buf(sb, last, pr-last);
-                return;
+                continue;
+            }
+            switch (*pr){
+                case '*':
+                case '_':{
+                    sb_append_buf(sb, last, pr-last);
+                    sb_append_cstr(sb, styles[Style_Italic]? "</em>" : "<em>");
+                    styles[Style_Italic] = !styles[Style_Italic];
+                    last = ++pr;
+                }continue;
+                case '~':{
+                    sb_append_buf(sb, last, pr-last);
+                    sb_append_cstr(sb, styles[Style_Strike]? "</s>" : "<s>");
+                    styles[Style_Strike] = !styles[Style_Strike];
+                    last = ++pr;
+                }continue;
+                case '[':{
+                    sb_append_buf(sb, last, pr-last);
+                    char *result = try_render_link(pr, sb);
+                    if (result == NULL){
+                        sb_append_buf(sb, pr, 1);
+                    }else{
+                        pr = result;
+                    }
+                    last = ++pr;
+                } continue;
+                case '\\':{
+                    // escaping
+                    sb_append_buf(sb, last, pr-last);
+                    sb_append_buf(sb, ++pr, 1);
+                    last = ++pr;
+                }continue;
             }
         }
         pr += 1;
