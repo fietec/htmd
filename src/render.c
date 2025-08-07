@@ -141,8 +141,8 @@ char* try_render_image(char *pr, String_Builder *sb)
 void render_text(char *pr, String_Builder *sb)
 {
     bool styles[_Style_Count] = {0};
+    pr = skip_whitespace(pr);
     char *last = pr;
-    
     while (true){
         if (*pr == '`'){
             sb_append_buf(sb, last, pr-last);
@@ -251,13 +251,13 @@ char* render_code_block(char *pr, char *line_buffer, size_t buffer_size, char *l
 {
     // TODO: parse language spec
     (void) pr;
-    sb_append_cstr(sb, "<pre>\n<code>");
+    sb_append_cstr(sb, "<pre><code>");
     while (true){
         line_ptr = get_next_line(line_ptr, line_buffer, buffer_size);
         if (line_ptr == NULL || starts_with(line_buffer, "```")) break;
         render_html_escaped(line_buffer, sb);
     }
-    sb_append_cstr(sb, "</code>\n</pre>\n");
+    sb_append_cstr(sb, "</code></pre>\n");
     return line_ptr;
 }
 
@@ -352,9 +352,7 @@ char* render_markdown(char *input)
         }
         
         switch (*pr){
-            case '-':
-            case '+':
-            case '*':{
+            case '-':{
                 line_ptr = render_unordered_list(pr, line_buffer, sizeof(line_buffer), line_ptr, &sb_out);
                 continue;
             }break;
