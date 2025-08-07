@@ -25,6 +25,19 @@ char* strchrnul(const char *r, int c)
     return p;
 }
 
+char* find_close(char *pr, char s, char e)
+{
+    size_t depth = 1;
+    while (true){
+        char c = *pr;
+        if (c == s) depth+=1;
+        else if (c == e) depth-=1;
+        
+        if (depth == 0 || c == '\0') return pr;
+        ++pr;
+    }
+}
+
 char* get_next_line(char *line_start, char *buffer, size_t buffer_size)
 {
     if (line_start == NULL || buffer == NULL || *line_start == '\0') return NULL;
@@ -108,10 +121,12 @@ bool line_is_empty(char *line)
 }
 
 // Rendering
+void render_text_field(char *pr, size_t n, String_Builder *sb);
+
 char* try_render_link(char *pr, String_Builder *sb)
 {
     char *display_start = ++pr;
-    char *display_end = strchrnul(pr, ']');
+    char *display_end = find_close(pr, '[', ']');
     pr = display_end;
     if (*pr == '\0') return NULL;
     if (*++pr != '(') return NULL;
@@ -119,7 +134,9 @@ char* try_render_link(char *pr, String_Builder *sb)
     char *link_end = strchrnul(pr, ')');
     if (*link_end == '\0') return NULL;
     if (strchrnul(link_start, ' ') < link_end) return NULL;
-    sb_appendf(sb, "<a href=\"%.*s\">%.*s</a>", (int) (link_end-link_start), link_start, (int) (display_end-display_start), display_start);
+    sb_appendf(sb, "<a href=\"%.*s\">", (int) (link_end-link_start), link_start);
+    render_text_field(display_start, (size_t) (display_end-display_start), sb);
+    sb_append_cstr(sb, "</a>");
     return link_end;
 }
 
@@ -138,9 +155,10 @@ char* try_render_image(char *pr, String_Builder *sb)
     return link_end;
 }
 
-void render_text(char *pr, String_Builder *sb)
+void render_text_field(char *pr, size_t n, String_Builder *sb)
 {
     bool styles[_Style_Count] = {0};
+    char *start = pr;
     pr = skip_whitespace(pr);
     char *last = pr;
     while (true){
@@ -151,7 +169,7 @@ void render_text(char *pr, String_Builder *sb)
             last = ++pr;
             continue;
         }
-        if (*pr == '\0'){
+        if ((size_t) (pr-start) >= n){
             sb_append_buf(sb, last, pr-last);
             return;
         }
@@ -208,6 +226,11 @@ void render_text(char *pr, String_Builder *sb)
         }
         pr += 1;
     }
+}
+
+void render_text(char *pr, String_Builder *sb)
+{
+    render_text_field(pr, strlen(pr), sb);
 }
 
 void render_paragraph(char *pr, String_Builder *sb)
