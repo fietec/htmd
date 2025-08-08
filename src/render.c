@@ -38,6 +38,13 @@ char* find_close(char *pr, char s, char e)
     }
 }
 
+size_t count_char(char *pr, char c)
+{
+    size_t count = 0;
+    while (*pr++ == c) ++count;
+    return count;
+}
+
 char* get_next_line(char *line_start, char *buffer, size_t buffer_size)
 {
     if (line_start == NULL || buffer == NULL || *line_start == '\0') return NULL;
@@ -89,15 +96,6 @@ char* skip_whitespace(char *pr)
             default: return pr;
         }
     }
-}
-
-size_t get_header_level(char *pr)
-{
-    size_t count = 0;
-    while (*pr++ == '#'){
-        count++;
-    }
-    return count;
 }
 
 char* is_enum(char *line)
@@ -305,15 +303,30 @@ char* render_code_block(char *pr, char *line_buffer, size_t buffer_size, char *l
 
 char* render_blockquote(char *pr, char *line_buffer, size_t buffer_size, char *line_ptr, String_Builder *sb)
 {
-    sb_append_cstr(sb, "<blockquote>\n");
-    (void) pr;
-    while (true){
-        if (line_ptr == NULL || *line_buffer != '>') break;
-        render_text(line_buffer+1, sb);
+    size_t last_level = 0;
+    size_t depth = 0;
+    char *next_line = line_ptr;
+    while (line_ptr != NULL){
+        pr = skip_whitespace(line_buffer);
+        size_t level = count_char(pr, '>');
+        if (level == 0) break;
+        line_ptr = next_line;
+        if (level > last_level){
+            sb_append_cstr(sb, "<blockquote>\n");
+            depth += 1;
+        }else if (level < last_level){
+            sb_append_cstr(sb, "</blockquote>\n");
+            depth -= 1;
+        }
+        last_level = level;
+        render_text(pr+level, sb);
         sb_append_cstr(sb, "<br>\n");
-        line_ptr = get_next_line(line_ptr, line_buffer, buffer_size);
+        next_line = get_next_line(line_ptr, line_buffer, buffer_size);
     }
-    sb_append_cstr(sb, "</blockquote>\n");
+    for (size_t i=0; i<depth; ++i){
+        sb_append_cstr(sb, "</blockquote>\n");
+    }
+    
     return line_ptr;
 }
 
@@ -377,7 +390,7 @@ char* render_markdown(char *input)
         pr = skip_whitespace(pr);
 
         // headings
-        size_t header_level = get_header_level(pr);
+        size_t header_level = count_char(pr, '#');
         if (header_level > 0){
             render_header(pr, &sb_out, header_level);
             continue;
