@@ -140,6 +140,15 @@ char* try_render_link(char *pr, String_Builder *sb)
     return link_end;
 }
 
+char *try_render_autolink(char *pr, String_Builder *sb)
+{
+    char *link_start = ++pr;
+    char *link_end = strchrnul(pr, '>');
+    if (*link_end == '\0') return NULL;
+    sb_appendf(sb, "<a href=\"%.*s\">%.*s</a>", (int) (link_end-link_start), link_start, (int) (link_end-link_start), link_start);
+    return link_end;
+}
+
 char* try_render_image(char *pr, String_Builder *sb)
 {
     char *display_start = pr+=2;
@@ -216,6 +225,16 @@ void render_text_field(char *pr, size_t n, String_Builder *sb)
                     }
                     last = ++pr;
                 } continue;
+                case '<':{
+                    sb_append_buf(sb, last, pr-last);
+                    char *result = try_render_autolink(pr, sb);
+                    if (result == NULL){
+                        sb_append_cstr(sb, "&lt;");
+                    }else{
+                        pr = result;
+                    }
+                    last = ++pr;
+                }continue;
                 case '\\':{
                     // escaping
                     sb_append_buf(sb, last, pr-last);
