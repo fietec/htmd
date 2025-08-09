@@ -15,7 +15,7 @@ WASM_LDFLAGS := \
 SRC_DIR := src
 OBJ_DIR := build
 SITE_DIR := site
-CLI_SRCS := $(SRC_DIR)/cli.c $(SRC_DIR)/render.c
+CLI_SRCS := $(SRC_DIR)/cli.c $(SRC_DIR)/render.c $(SRC_DIR)/cwalk.c
 WASM_SRCS := $(SRC_DIR)/render.c
 
 CLI_OBJS := $(CLI_SRCS:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)

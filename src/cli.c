@@ -1,10 +1,45 @@
 #include <stdio.h>
 #include <stdbool.h>
+#include <unistd.h>
+
 #include <htmd.h>
+#include <cwalk.h>
 
 #define NOB_IMPLEMENTATION
 #define NOB_STRIP_PREFIX
 #include <nob.h>
+
+static char exe_dir[FILENAME_MAX];
+static char temp_path[FILENAME_MAX];
+
+bool get_exe_path(char *buffer, size_t buffer_size)
+{
+#ifdef _WIN32
+    GetModuleFileNameA(NULL, buffer, buffer_size);
+#elif __APPLE__
+    if (_NSGetExecutablePath(buffer, &buffer_size) != 0) return false;
+#elif __linux__
+    ssize_t len = readlink("/proc/self/exe", buffer, buffer_size-1);
+    if (len == -1) return false;
+    buffer[len] = '\0';
+#else
+    fprintf(stderr, "[ERROR] %s:%d:%s: Unsupported platform!\n", __LINE__, __FILE__, __func__);
+    return false;
+#endif 
+    cwk_path_normalize(buffer, buffer, buffer_size);
+    return true;
+}
+
+bool get_parent_dir(const char *path, char *buffer, size_t buffer_size)
+{
+    size_t parent_len;
+    cwk_path_get_dirname(path, &parent_len);
+    if (parent_len == 0 || parent_len >= buffer_size) return false;
+    memmove(buffer, path, parent_len);
+    buffer[parent_len] = '\0';
+    cwk_path_normalize(buffer, buffer, buffer_size);
+    return true;
+}
 
 char* read_file(const char *path)
 {
@@ -45,6 +80,11 @@ void print_usage(const char *program_name)
 
 int main(int argc, char *argv[])
 {
+    if (!get_exe_path(exe_dir, sizeof(exe_dir))){
+        eprintfn("Could not resolve executable path");
+        return 1;
+    }
+    get_parent_dir(exe_dir, exe_dir, sizeof(exe_dir));
     const char *program_name = shift_args(&argc, &argv);
     
     bool full_html = false;
@@ -86,9 +126,12 @@ int main(int argc, char *argv[])
     if (full_html){
         sb_append_cstr(&sb, "<!DOCTYPE html>\n<html>\n<head>\n");
         if (do_styling){
-            read_entire_file("src/head.html", &sb);
+            cwk_path_join(exe_dir, "src/head.html", temp_path, sizeof(temp_path));
+            read_entire_file(temp_path, &sb);
             sb_append_cstr(&sb, "<style>\n");
-            read_entire_file("src/style.css", &sb);
+
+            cwk_path_join(exe_dir, "src/style.css", temp_path, sizeof(temp_path));
+            read_entire_file(temp_path, &sb);
             sb_append_cstr(&sb, "</style>\n");
         }
         sb_append_cstr(&sb, "</head>\n<body>\n");
