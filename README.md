@@ -32,4 +32,5 @@ and open `localhost:6969` in your webbrowser.
 ## Third-Party Components
 - [cwalk](https://github.com/likle/cwalk) by likle, licensed under the MIT License.
 - [nob.h](https://github.com/tsoding/nob.h) by tsoding, licensed under the Unlicense.
+
 See the `LICENSE` file for details.
