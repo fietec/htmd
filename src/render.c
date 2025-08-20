@@ -98,6 +98,12 @@ char* skip_whitespace(char *pr)
     }
 }
 
+char* find_word_end(char *pr)
+{
+    while (isalpha(*pr)) ++pr;
+    return pr;
+}
+
 char* is_enum(char *line)
 {
     char *pr = skip_whitespace(line);
@@ -289,9 +295,14 @@ void render_html_escaped(char *pr, String_Builder *sb)
 
 char* render_code_block(char *pr, char *line_buffer, size_t buffer_size, char *line_ptr, String_Builder *sb)
 {
-    // TODO: parse language spec
-    (void) pr;
-    sb_append_cstr(sb, "<pre><code>");
+    pr = skip_whitespace(pr) + 3;
+    pr = skip_whitespace(pr);
+    char *lang_end = find_word_end(pr);
+    if (lang_end != pr){
+        sb_appendf(sb, "<pre><code class=\"language-%.*s\">\n", (int) (lang_end-pr), pr);
+    }else{
+        sb_append_cstr(sb, "<pre><code>\n");
+    }
     while (true){
         line_ptr = get_next_line(line_ptr, line_buffer, buffer_size);
         if (line_ptr == NULL || starts_with(line_buffer, "```")) break;
