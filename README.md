@@ -7,19 +7,19 @@ A simple Markdown to HTML converter and viewer.
 
 ### CLI
 To use the cli program to convert `.md` files to `.html`, compile
-```makefile 
+```console 
 make cli
 ```
 and simply run the executable.
 
 ### Website
 To use the live convertion server, first compile with
-```makefile 
+```console 
 make wasm
 ```
 which creates a wasm module using emscripten.  
 To start the server, run:
-```terminal
+```console
 cd site
 python3 -m http.server 6969
 ```
