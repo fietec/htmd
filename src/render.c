@@ -205,6 +205,7 @@ void render_text_field(char *pr, size_t n, String_Builder *sb)
                 last = ++pr;
                 continue;
             }
+
             switch (*pr){
                 case '*':
                 case '_':{
@@ -223,7 +224,19 @@ void render_text_field(char *pr, size_t n, String_Builder *sb)
                     sb_append_buf(sb, last, pr-last);
                     char *result = try_render_link(pr, sb);
                     if (result == NULL){
-                        sb_append_buf(sb, pr, 1);
+                        if (starts_with(pr, "[ ]")){
+                            sb_append_buf(sb, last, pr-last);
+                            sb_append_cstr(sb, "<input type=\"checkbox\"/>");
+                            last = pr += 2;
+                        }
+                        else if (starts_with(pr, "[x]")){
+                            sb_append_buf(sb, last, pr-last);
+                            sb_append_cstr(sb, "<input type=\"checkbox\" checked />");
+                            last = pr += 2;
+                        }
+                        else{
+                            sb_append_buf(sb, pr, 1);
+                        }
                     }else{
                         pr = result;
                     }
@@ -258,6 +271,7 @@ void render_text(char *pr, String_Builder *sb)
 
 void render_paragraph(char *pr, String_Builder *sb)
 {
+    // TODO: make this span multiple lines so that we can have proper markdown line breaks
     sb_append_cstr(sb, "<p>");
     render_text(pr, sb);
     sb_append_cstr(sb, "</p>\n");
