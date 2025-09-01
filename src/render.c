@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
+#include <dirent.h>
 
 #include <htmd.h>
 
@@ -8,6 +9,7 @@
 #define NOB_IMPLEMENTATION
 #endif // HTMD_CLI
 #define NOB_STRIP_PREFIX
+#define NOB_NO_MINIRENT
 #include <nob.h>
 
 typedef enum{

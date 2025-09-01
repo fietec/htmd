@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <unistd.h>
+#include <sys/stat.h>
 
 #include <htmd.h>
 #include <cwalk.h>
